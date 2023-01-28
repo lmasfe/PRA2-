@@ -1,0 +1,295 @@
+---
+title: "Visualització de Dades, Pràctica 1."
+author: "Luis Francisco Mas Fernández"
+date: "14/12/2022"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  pdf: default
+---
+## Neteja de dades
+
+```{r include=FALSE}
+data <-read.table("allbp.data", header=FALSE, sep=",")
+
+data_names <- c("Age", "Sex", "On Thyroxine", "Query on Thyroxine", "Antithyroid Med", "Sick", "Pregnant", "Thyroid Surgery", "I131 treatment", "Query Hypothyroid", "Query Hyperthyroid", "Lithium", "Goitre", "Tumor", "Hypopituitary", "Psych", "TSH measured", "TSH", "T3 measured", "T3", "TT4 measured", "TT4", "T4U measured", "T4U", "FTI measured", "FTI", "TBG measured", "TBG", "referral sourse", "patient state")
+
+names(data) <- data_names
+
+data$Age <- as.numeric(data$Age)
+data$TSH <- as.numeric(data$TSH)
+data$T3 <- as.numeric(data$T3)
+data$TT4 <- as.numeric(data$TT4)
+data$T4U <- as.numeric(data$T4U)
+data$FTI <- as.numeric(data$FTI)
+data$TBG <- as.numeric(data$TBG)
+
+data$`patient state` <- as.character(data$`patient state`)
+
+head(data)
+```
+
+
+```{r include=FALSE}
+str(data)
+``` 
+
+```{r include=FALSE}
+data = data[-c(27, 28)]
+```
+
+
+```{r include=FALSE}
+library(stringr)
+data[c('State', 'ID')] <- str_split_fixed(data$`patient state`, '\\.\\|', 2)
+```
+
+```{r include=FALSE}
+data = data[-28]
+```
+
+
+```{r include=FALSE}
+data[data == "f" | data == "F"] <- 0
+data[data == "t" | data == "M"] <- 1
+str(data)
+
+my_range <- c(2:26, 29)
+col_names <- colnames(data)[my_range]
+
+for(i in col_names) {     
+  data[,i] <- as.numeric(data[,i])
+}
+```
+
+```{r echo=FALSE}
+str(data)
+```
+
+```{r include=FALSE}
+colSums(is.na(data))
+```
+
+## Classificació de variables per tipus
+
+```{r echo=FALSE}
+library(plotly)
+
+fig <- plot_ly(
+  labels =  c("Total",
+              "Demographics", "Treatments/Sugeries", "Laboratory", "Causes", "Location",
+              "Sex", "Age",
+              "On Thyroxine", "I131 Treatment", "Antithyroid Med", "Thyroid Surgery", "Lithium",
+              "TSH measured", "T3 measured", "TT4 measured", "T4U measured", "FTI measured", 
+              "Referral sourse",
+              "Goitre", "Tumor", "Hypopituitarism", "Pregnant", "Psych"),
+  
+  parents = c(" ",
+              "Total", "Total", "Total", "Total", "Total",
+              "Demographics", "Demographics",
+              "Treatments/Sugeries", "Treatments/Sugeries", "Treatments/Sugeries", "Treatments/Sugeries", "Treatments/Sugeries",
+              "Laboratory", "Laboratory", "Laboratory", "Laboratory", "Laboratory",
+              "Location",
+              "Causes", "Causes", "Causes", "Causes", "Causes"),
+  
+  #values =c(rep(1, 26)),
+  
+  type = 'sunburst'
+)
+fig
+```
+## Comparatives en valors de laboratori
+
+```{r include=FALSE}
+Laboratory <- c("TSH", "T3", "TT4", "T4U", "FTI")
+
+fun_range <- function(x) { 
+  (x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+}
+for(i in Laboratory){
+  data[,i] <- fun_range(data[,i])
+  
+}
+```
+
+```{r include=FALSE}
+data_p <- data[data$State != "negative",]
+
+measured_p <- c(sum(data_p$`TSH measured`), sum(data_p$`T3 measured`), sum(data_p$`TT4 measured`), sum(data_p$`T4U measured`), sum(data_p$`FTI measured`) )
+
+means_p <- c(mean(data_p$TSH, na.rm = TRUE), mean(data_p$T3, na.rm = TRUE), mean(data_p$TT4, na.rm = TRUE), mean(data_p$T4U, na.rm = TRUE), mean(data_p$FTI, na.rm = TRUE))
+
+total_p <- c(1, measured_p/sum(measured_p), means_p)
+
+data_n <- data[data$State == "negative",]
+
+measured_n <- c(sum(data_n$`TSH measured`), sum(data_n$`T3 measured`), sum(data_n$`TT4 measured`), sum(data_n$`T4U measured`), sum(data_n$`FTI measured`) )
+
+means_n <- c(mean(data_n$TSH, na.rm = TRUE), mean(data_n$T3, na.rm = TRUE), mean(data_n$TT4, na.rm = TRUE), mean(data_n$T4U, na.rm = TRUE), mean(data_n$FTI, na.rm = TRUE))
+
+total_n <- c(1, measured_n/sum(measured_n), means_n)
+
+means_pn <- data.frame(Laboratory, means_p, means_n)
+
+data_lab <- data.frame(Laboratory, means_p, means_n)
+
+```
+
+```{r echo=FALSE}
+fig <- plot_ly(means_pn, x = ~Laboratory, y = ~means_p, type = 'bar', name = 'Postive patients')
+fig <- fig %>% add_trace(y = ~means_n, name = 'Negative patients')
+fig <- fig %>% layout(yaxis = list(title = 'Count'), barmode = 'group')
+
+fig
+
+```
+
+```{r include=FALSE}
+measured <- c(sum(data$`TSH measured`), sum(data$`T3 measured`), sum(data$`TT4 measured`), sum(data$`T4U measured`), sum(data$`FTI measured`) )
+
+means <- c(mean(data$TSH, na.rm = TRUE), mean(data$T3, na.rm = TRUE), mean(data$TT4, na.rm = TRUE), mean(data$T4U, na.rm = TRUE), mean(data$FTI, na.rm = TRUE))
+
+total <- c(1, measured/sum(measured), means)
+```
+
+```{r include=FALSE}
+data_p = data[data$State != "negative",]
+data_n = data[data$State == "negative",]
+```
+
+```{r echo=FALSE}
+library(plotly)
+
+par(mfrow=c(1,2))
+
+fig1 <- plot_ly(
+  labels = c("Total Positive","TSH measured", "T3 measured", "TT4 measured", "T4U measured", "FTI measured", "TSH", "T3", "TT4", "T4U", "FTI"),
+  
+  parents = c("", "Total Positive", "Total Positive", "Total Positive", "Total Positive", "Total Positive", "TSH measured", "T3 measured", "TT4 measured", "T4U measured", "FTI measured"),
+  
+  values =total_p,
+  
+  type = 'sunburst'
+)
+
+fig1
+```
+
+```{r echo=FALSE}
+fig2 <- plot_ly(
+  labels = c("Total Negative","TSH measured", "T3 measured", "TT4 measured", "T4U measured", "FTI measured", "TSH", "T3", "TT4", "T4U", "FTI"),
+  
+  parents = c("", "Total Negative", "Total Negative", "Total Negative", "Total Negative", "Total Negative", "TSH measured", "T3 measured", "TT4 measured", "T4U measured", "FTI measured"),
+  
+  values =total_n,
+  
+  type = 'sunburst'
+)
+
+fig2
+```
+
+```{r include=FALSE}
+library(packcircles)
+library(ggplot2)
+library(viridis)
+library(ggiraph)
+```
+
+Eliminamos Hypopituary porque solo tiene un valor distinto de 0
+
+```{r}
+Causes <- c("Pregnant", "Goitre", "Tumor", "Psych")
+
+
+for(i in Causes){
+  data[,i] <- fun_range(data[,i])
+}
+
+means_cp <- c(mean(data_p$Pregnant, na.rm = TRUE), mean(data_p$Goitre, na.rm = TRUE), mean(data_p$Tumor, na.rm = TRUE), mean(data_p$Psych, na.rm = TRUE))
+
+means_cn <- c(mean(data_n$Pregnant, na.rm = TRUE), mean(data_n$Goitre, na.rm = TRUE), mean(data_n$Tumor, na.rm = TRUE), mean(data_n$Psych, na.rm = TRUE))
+
+values_means_c <- c(means_cp, means_cn)
+names_means_c <- c("+ Pregnant", "+ Goitre", "+ Tumor", "+ Psych", "- Pregnant", "- Goitre", "- Tumor", "- Psych")
+
+means_c <- data.frame(names_means_c, values_means_c)
+```
+
+```{r echo=FALSE}
+packing <- circleProgressiveLayout(means_c$values_means_c, sizetype='area')
+ 
+# We can add these packing information to the initial data frame
+data_graph <- cbind(means_c, packing)
+ 
+# Check that radius is proportional to value. We don't want a linear relationship, since it is the AREA that must be proportionnal to the value
+# plot(data$radius, data$value)
+ 
+# The next step is to go from one center + a radius to the coordinates of a circle that
+# is drawn by a multitude of straight lines.
+dat.gg <- circleLayoutVertices(packing, npoints=50)
+ 
+# Make the plot
+ggplot() + 
+  
+  # Make the bubbles
+  geom_polygon(data = dat.gg, aes(x, y, group = id, fill=as.factor(id)), colour = "black", alpha = 0.6) +
+  
+  # Add text in the center of each bubble + control its size
+  geom_text(data = data_graph, aes(x, y, size=values_means_c, label = names_means_c)) +
+  scale_size_continuous(range = c(1,4)) +
+  
+  # General theme:
+  theme_void() + 
+  theme(legend.position="none") +
+  coord_equal()
+```
+
+
+
+
+```{r include=FALSE}
+data[data$State != "negative",]$State <- 1
+data[data$State == "negative",]$State <- 0
+
+
+data$State <- as.numeric(data$State)
+
+```
+
+```{r echo=FALSE}
+library(psych)
+library(PerformanceAnalytics)
+
+par(mfrow = c(2,2))
+
+data_corr_lab <- data[, c("TSH", "T3", "TT4", "T4U", "FTI", "State")]
+
+corPlot(data_corr_lab, cex = 1.2)
+
+data_corr_dm <- data[, c("Sex", "Age", "State")]
+
+corPlot(data_corr_dm, cex = 1.2)
+
+data_corr_trt <- data[, c("On Thyroxine", "Thyroid Surgery", "I131 treatment", "Antithyroid Med", "Lithium", "State")]
+
+corPlot(data_corr_trt, cex = 1.2)
+
+data_corr_causes <- data[, c("Tumor", "Goitre", "Pregnant", "Hypopituitary", "Psych", "State")]
+
+corPlot(data_corr_causes, cex = 1.2)
+```
+
+Consideramos las 6 variables con más correlación con la variable objetivo State:
+
+T4U(0.46), Pregnant(0.35), T3(0.34), TT4(0.26), Age(0.12), Sex(0.1)
+
+```{r echo=FALSE}
+data_tree = data[, c("T4U", "Pregnant", "T3", "TT4", "Age", "Sex", "State")]
+
+library(rpart)
+library(rpart.plot)
+fit <- rpart(State~., data = data_tree, method = 'class')
+rpart.plot(fit)
+```
